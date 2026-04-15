@@ -12,6 +12,7 @@ import {
   getLessonProgress,
   saveLessonProgress,
   getPracticeSessions,
+  savePracticeSessions,
   addPracticeSession as storageAddSession,
   deletePracticeSession as storageDeleteSession,
   getPracticeStats
