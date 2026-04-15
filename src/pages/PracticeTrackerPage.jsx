@@ -2,7 +2,7 @@ import StatsPanel from '../components/practice/StatsPanel';
 import PracticeForm from '../components/practice/PracticeForm';
 import PracticeHistory from '../components/practice/PracticeHistory';
 
-export default function PracticeTrackerPage({ instruments, stats, practiceLogs, selectedInstrument, setSelectedInstrument, addPracticeLog }) {
+export default function PracticeTrackerPage({ instruments, stats, practiceLogs, selectedInstrument, setSelectedInstrument, addPracticeLog, deletePracticeLog }) {
   return (
     <section className="container page-section">
       <div className="section-heading">
@@ -20,7 +20,7 @@ export default function PracticeTrackerPage({ instruments, stats, practiceLogs, 
           setSelectedInstrument={setSelectedInstrument}
           addPracticeLog={addPracticeLog}
         />
-        <PracticeHistory logs={practiceLogs} />
+        <PracticeHistory logs={practiceLogs} onDelete={deletePracticeLog} />
       </div>
     </section>
   );

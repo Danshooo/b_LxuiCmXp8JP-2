@@ -8,8 +8,16 @@ import InstrumentDetailPage from './pages/InstrumentDetailPage';
 import LessonsPage from './pages/LessonsPage';
 import PracticeTrackerPage from './pages/PracticeTrackerPage';
 import AboutPage from './pages/AboutPage';
+import {
+  getLessonProgress,
+  saveLessonProgress,
+  getPracticeSessions,
+  addPracticeSession as storageAddSession,
+  deletePracticeSession as storageDeleteSession,
+  getPracticeStats
+} from './lib/storage';
 
-function buildInitialLessons() {
+function buildDefaultLessonStatus() {
   const map = {};
   instruments.forEach((instrument) => {
     instrument.lessons.forEach((lesson, index) => {
@@ -19,13 +27,63 @@ function buildInitialLessons() {
   return map;
 }
 
+function lessonProgressToStatus(progressList) {
+  const status = buildDefaultLessonStatus();
+  progressList.forEach(({ lesson_id, completed }) => {
+    if (completed && lesson_id in status) {
+      status[lesson_id] = 'completed';
+      instruments.forEach((instrument) => {
+        const idx = instrument.lessons.findIndex((l) => l.id === lesson_id);
+        if (idx !== -1) {
+          const next = instrument.lessons[idx + 1];
+          if (next && status[next.id] === 'locked') {
+            status[next.id] = 'available';
+          }
+        }
+      });
+    }
+  });
+  return status;
+}
+
+function statusToProgressList(statusMap) {
+  const list = [];
+  instruments.forEach((instrument) => {
+    instrument.lessons.forEach((lesson) => {
+      if (statusMap[lesson.id] === 'completed') {
+        list.push({
+          instrument_id: instrument.id,
+          lesson_id: lesson.id,
+          completed: true,
+          completed_at: new Date().toISOString()
+        });
+      }
+    });
+  });
+  return list;
+}
+
+function initLessonStatus() {
+  const saved = getLessonProgress();
+  if (saved.length === 0) return buildDefaultLessonStatus();
+  return lessonProgressToStatus(saved);
+}
+
+function initPracticeLogs() {
+  const saved = getPracticeSessions();
+  if (saved.length > 0) return saved;
+  const defaults = [
+    { id: 'demo-1', date: '2026-04-13', instrument: 'Guitar', minutes: 25 },
+    { id: 'demo-2', date: '2026-04-14', instrument: 'Piano', minutes: 30 },
+    { id: 'demo-3', date: '2026-04-15', instrument: 'Guitar', minutes: 20 }
+  ];
+  savePracticeSessions(defaults);
+  return defaults;
+}
+
 export default function App() {
-  const [lessonStatus, setLessonStatus] = useState(buildInitialLessons());
-  const [practiceLogs, setPracticeLogs] = useState([
-    { id: 1, date: '2026-04-13', instrument: 'Guitar', minutes: 25 },
-    { id: 2, date: '2026-04-14', instrument: 'Piano', minutes: 30 },
-    { id: 3, date: '2026-04-15', instrument: 'Guitar', minutes: 20 }
-  ]);
+  const [lessonStatus, setLessonStatus] = useState(initLessonStatus);
+  const [practiceLogs, setPracticeLogs] = useState(initPracticeLogs);
   const [selectedInstrument, setSelectedInstrument] = useState('Guitar');
 
   const markLessonCompleted = (lessonId, instrumentId) => {
@@ -38,31 +96,25 @@ export default function App() {
       if (nextLesson && next[nextLesson.id] === 'locked') {
         next[nextLesson.id] = 'available';
       }
+      saveLessonProgress(statusToProgressList(next));
       return next;
     });
   };
 
   const addPracticeLog = (log) => {
-    setPracticeLogs((current) => [{ id: Date.now(), ...log }, ...current]);
+    const session = { id: `session-${Date.now()}`, ...log };
+    storageAddSession(session);
+    setPracticeLogs((current) => [session, ...current]);
+  };
+
+  const deletePracticeLog = (id) => {
+    storageDeleteSession(id);
+    setPracticeLogs((current) => current.filter((s) => s.id !== id));
   };
 
   const stats = useMemo(() => {
-    const totalMinutes = practiceLogs.reduce((sum, item) => sum + item.minutes, 0);
-    const completedLessons = Object.values(lessonStatus).filter((value) => value === 'completed').length;
-    const uniqueDays = [...new Set(practiceLogs.map((item) => item.date))].sort();
-
-    let streak = 0;
-    if (uniqueDays.length) {
-      streak = 1;
-      for (let i = uniqueDays.length - 1; i > 0; i -= 1) {
-        const current = new Date(uniqueDays[i]);
-        const previous = new Date(uniqueDays[i - 1]);
-        const diff = (current - previous) / (1000 * 60 * 60 * 24);
-        if (diff === 1) streak += 1;
-        else break;
-      }
-    }
-
+    const completedLessons = Object.values(lessonStatus).filter((v) => v === 'completed').length;
+    const { totalMinutes, streak } = getPracticeStats(practiceLogs);
     return { totalMinutes, completedLessons, streak };
   }, [practiceLogs, lessonStatus]);
 
@@ -101,6 +153,7 @@ export default function App() {
               selectedInstrument={selectedInstrument}
               setSelectedInstrument={setSelectedInstrument}
               addPracticeLog={addPracticeLog}
+              deletePracticeLog={deletePracticeLog}
             />
           }
         />

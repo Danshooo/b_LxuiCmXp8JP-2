@@ -1,4 +1,6 @@
-export default function PracticeHistory({ logs }) {
+import { Trash2 } from 'lucide-react';
+
+export default function PracticeHistory({ logs, onDelete }) {
   return (
     <div className="card">
       <span className="eyebrow">History</span>
@@ -9,6 +11,15 @@ export default function PracticeHistory({ logs }) {
             <strong>{log.instrument}</strong>
             <span>{log.minutes} min</span>
             <small>{log.date}</small>
+            {onDelete && (
+              <button
+                className="ghost-btn delete-btn"
+                onClick={() => onDelete(log.id)}
+                aria-label="Delete session"
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
           </div>
         ))}
       </div>
